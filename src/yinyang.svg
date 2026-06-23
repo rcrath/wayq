@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <g id="yin" fill="#D4A84A">
+    <path d="M100 5 A47.5 47.5 0 0 1 100 100 A47.5 47.5 0 0 0 100 195 A95 95 0 0 1 100 5 Z"/>
+    <circle cx="100" cy="52.5" r="14" fill="#FFFDE8"/>
+  </g>
+  <g id="yang" fill="#FFFDE8" transform="rotate(180 100 100)">
+    <path d="M100 5 A95 95 0 0 0 100 195 A47.5 47.5 0 0 1 100 100 A47.5 47.5 0 0 0 100 5 Z"/>
+    <circle cx="100" cy="52.5" r="14" fill="#D4A84A"/>
+  </g>
+</svg>
