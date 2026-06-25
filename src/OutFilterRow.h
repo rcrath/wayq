@@ -76,9 +76,6 @@ public:
     bool isLinked() const { return linked_; }
     void setLinked (bool linked);
 
-    // Sane/FAFO color tweak hook (matches existing rows' API).
-    void applyFafoColors (bool isFafo);
-
     std::function<void(bool)> onLinkChanged;
 
 private:
@@ -193,8 +190,6 @@ private:
     bool linked_     = false;   // constructor's setLinked(true) flips this and runs the full linked-state setup
     int  activeChan_ = 0;     // 0 = A, 1 = B
     float savedB_[NumKnobs] = {};
-
-    bool fafo_ = false;
 
     DragMode         dragMode_         = DragMode::None;
     juce::Point<int> dragStart_;

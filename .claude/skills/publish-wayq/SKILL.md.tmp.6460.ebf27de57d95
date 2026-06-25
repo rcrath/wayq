@@ -1,0 +1,62 @@
+# /publish-wayq — Tag a WayQ release; CI builds every platform and auto-publishes to way.net/wayq/installers
+
+Adapted from `/publish-rhythmecho`. The deploy is **automatic**: pushing a version tag triggers GitHub Actions (`.github/workflows/build.yml`), which builds the plugin on every platform and uploads the installers to `way.net/wayq/installers/`, archiving the previous release. This skill validates the version and pushes the tag — it does **not** build or scp anything itself.
+
+Same platform scope as rhythmecho: **Windows x64 + ARM64, Linux x64 + ARM64, macOS universal (Intel + Apple Silicon)**, **VST3 + CLAP**, Release. (No AU — wayq's CMakeLists builds VST3+CLAP only.) Single repo `rcrath/wayq`; the installer listing is Apache FancyIndexing.
+
+## Invocation
+
+User types `/publish-wayq`. No arguments.
+
+## Canonical context (do not rediscover)
+
+- **Version (source of truth):** `src/PluginProcessor.h` → `PLUGIN_VERSION` (e.g. `v0.1.0-alpha`). Rich owns it — never bump, propose, or change it here (version-number rule).
+- **Build + deploy:** `.github/workflows/build.yml`. A tag push (`v*`) builds all platforms and auto-deploys. No local build/scp in this flow.
+- **Installers:** `way.net/wayq/installers/` (Apache FancyIndexing — `installers/.htaccess` + `HEADER.html` + `style.css` already deployed). On each release CI moves the prior `WayQ-*` files into `installers/archive/`. Local mirror via `scripts/mirror_installers.sh`.
+- **Repo:** `rcrath/wayq` (private during alpha; public at beta).
+- Website context: `project_wayq_web.md`.
+
+Pause at each **→ HUMAN GATE** for explicit approval.
+
+## Prerequisites (one-time; reuse rhythmecho's existing secrets — do NOT create new ones)
+
+The same GitHub secrets rhythmecho's CI uses must be available to `rcrath/wayq`:
+- `HOSTGATOR_SSH_KEY` (existing way.net key — Rich already has write access to way.net).
+- macOS signing/notarization: `DEVELOPER_ID_P12` / `DEVELOPER_ID_P12_PASSWORD`, `DEVELOPER_ID_INSTALLER_P12` / `DEVELOPER_ID_INSTALLER_P12_PASSWORD`, `APPLE_ID`, `APPLE_APP_PASSWORD`, `APPLE_TEAM_ID`.
+
+If a secret is missing on this repo, tell Rich which one — don't work around it.
+
+## Stage 0 — Version + tag  → HUMAN GATE
+
+1. Read `PLUGIN_VERSION` from `src/PluginProcessor.h`. The tag is exactly that string (already `v…`-prefixed). Do not change it.
+2. `git tag --list <tag>` — reject if it already exists.
+3. Confirm the working tree is committed and HEAD is the commit to release.
+4. → HUMAN GATE: confirm version + tag + that HEAD is the release commit.
+
+## Stage 1 — Tag + push (triggers everything)
+
+1. `git tag <tag>`
+2. `git push origin <tag>`
+3. Print the Actions URL: `https://github.com/rcrath/wayq/actions`
+
+## Stage 2 — CI builds + deploys (automatic — nothing to do)
+
+`build.yml` (tag-triggered) builds Windows x64/ARM64, Linux x64/ARM64, and signed+notarized macOS universal; zips each (`WayQ-<platform>-<tag>.zip`, macOS `.pkg`); archives the prior `WayQ-*` into `installers/archive/`; and scps the new set to `way.net/wayq/installers/`. Watch the Actions run. If it fails, surface the workflow log URL — do not retag without Rich's approval.
+
+## Stage 3 — Verify (after CI is green)
+
+1. `curl -sS "https://way.net/wayq/installers/?b=$(date +%s)"` → the new files are listed.
+2. `curl -sI` each download URL → 200 + sane size.
+3. Optionally run `scripts/mirror_installers.sh` to pull the installers to the local Dropbox mirror.
+4. Report the public download URLs.
+
+## Deferred (add when wanted)
+
+- **Changelog / GitHub release:** optionally have CI publish a `gh release` on `rcrath/wayq` with notes. RhythmEcho's 6-scanner/3-writer/cross-checker swarm is heavier than an alpha needs; a single light pass over `git log <last-tag>..HEAD` suffices when wanted.
+
+## Don'ts
+
+- Never bump, propose, or change `PLUGIN_VERSION` — Rich owns versions.
+- Never build locally for Rich; CI builds.
+- Never delete or overwrite anything in `installers/archive/`.
+- Never retag or force-push a tag without Rich's explicit approval.

@@ -1,0 +1,656 @@
+name: Build WayQ
+# Faithful port of rhythmecho's build.yml. Multi-platform release build:
+#   Windows x64 + ARM64, Linux x64 + ARM64, macOS universal (Intel + Apple Silicon).
+#   Formats: VST3 + CLAP everywhere, plus AU on macOS (added to CMakeLists FORMATS).
+#   Release config. A version-tag push (v*) builds every platform, publishes a
+#   GitHub Release on rcrath/wayq, and deploys the installers to
+#   way.net/wayq/installers (archiving the prior release per-version).
+#
+# Secrets required on rcrath/wayq — the SAME ones rhythmecho's CI uses (reuse them,
+# do NOT create new ones):
+#   HOSTGATOR_SSH_KEY
+#   DEVELOPER_ID_P12 / DEVELOPER_ID_P12_PASSWORD
+#   DEVELOPER_ID_INSTALLER_P12 / DEVELOPER_ID_INSTALLER_P12_PASSWORD
+#   APPLE_ID / APPLE_APP_PASSWORD / APPLE_TEAM_ID
+# The GitHub Release uses the default GITHUB_TOKEN (single repo — no -issues repo).
+#
+# Differences from rhythmecho (because wayq genuinely differs):
+#   - Source dir is the repo ROOT (-S .), not src/.  CMakeLists is at repo root.
+#   - GitHub Release is published on rcrath/wayq itself (not a separate -issues repo);
+#     uses the default GITHUB_TOKEN, not a PAT.
+#   - auval invocation is `aufx WayQ RRth` (wayq is a plain effect, aufx, mfr RRth,
+#     code WayQ) vs rhythmecho's `aumf RhEc WaMu` (music effect).
+#   - No PDF manual artifact (wayq has none).
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+on:
+  push:
+    branches: [ main ]
+    tags:     [ "v*" ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:   # allows manual trigger from the Actions tab
+
+jobs:
+
+  # ============================================================
+  # Windows x64
+  # ============================================================
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Stage Windows release artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path win_release/win -Force
+          Copy-Item -Recurse build/WayQ_artefacts/Release/VST3/WayQ.vst3 win_release/win/
+          Copy-Item -Recurse build/WayQ_artefacts/Release/CLAP/WayQ.clap win_release/win/
+          Copy-Item "src/Install WayQ.vbs" win_release/
+          Copy-Item src/EULA.md win_release/
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: WayQ-Windows-VST3
+          path: win_release/
+
+  # ============================================================
+  # Windows ARM64 (cross-compiled on x64 runner via MSVC ARM64)
+  # ============================================================
+  build-windows-arm64:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -A ARM64
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Stage Windows ARM64 release artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path win_arm64_release/win-arm64 -Force
+          Copy-Item -Recurse build/WayQ_artefacts/Release/VST3/WayQ.vst3 win_arm64_release/win-arm64/
+          Copy-Item -Recurse build/WayQ_artefacts/Release/CLAP/WayQ.clap win_arm64_release/win-arm64/
+          Copy-Item "src/Install WayQ.vbs" win_arm64_release/
+          Copy-Item src/EULA.md win_arm64_release/
+
+      - name: Upload Windows ARM64 artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: WayQ-Windows-ARM64-VST3
+          path: win_arm64_release/
+
+  # ============================================================
+  # Linux x64
+  # ============================================================
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake \
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev \
+            libfreetype-dev libfontconfig1-dev \
+            libasound2-dev \
+            libgl1-mesa-dev
+
+      - name: Configure
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Stage Linux release artifact
+        run: |
+          mkdir -p linux_release/linux
+          cp -r build/WayQ_artefacts/Release/VST3/WayQ.vst3 linux_release/linux/
+          cp -r build/WayQ_artefacts/Release/CLAP/WayQ.clap linux_release/linux/
+          cp src/install_wayq_linux.sh linux_release/install_wayq.sh
+          chmod +x linux_release/install_wayq.sh
+          cp src/EULA.md linux_release/linux/
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: WayQ-Linux-VST3
+          path: linux_release/
+
+  # ============================================================
+  # Linux ARM64 (native ubuntu-24.04-arm runner)
+  # ============================================================
+  build-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential cmake \
+            libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxext-dev \
+            libfreetype-dev libfontconfig1-dev \
+            libasound2-dev \
+            libgl1-mesa-dev
+
+      - name: Configure
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Stage Linux ARM64 release artifact
+        run: |
+          mkdir -p linux_arm64_release/linux-arm64
+          cp -r build/WayQ_artefacts/Release/VST3/WayQ.vst3 linux_arm64_release/linux-arm64/
+          cp -r build/WayQ_artefacts/Release/CLAP/WayQ.clap linux_arm64_release/linux-arm64/
+          cp src/install_wayq_linux.sh linux_arm64_release/install_wayq.sh
+          chmod +x linux_arm64_release/install_wayq.sh
+          cp src/EULA.md linux_arm64_release/linux-arm64/
+
+      - name: Upload Linux ARM64 artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: WayQ-Linux-ARM64-VST3
+          path: linux_arm64_release/
+
+  # ============================================================
+  # macOS (universal: x86_64 + arm64), signed + notarized
+  # ============================================================
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Import Developer ID certificates
+        env:
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_P12 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+          INSTALLER_P12_BASE64: ${{ secrets.DEVELOPER_ID_INSTALLER_P12 }}
+          INSTALLER_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_INSTALLER_P12_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 16)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          # Import Application cert (for codesigning plugins)
+          echo "$P12_BASE64" | base64 --decode > app_cert.p12
+          security import app_cert.p12 -k "$KEYCHAIN_PATH" -P "$P12_PASSWORD" -A
+          rm app_cert.p12
+          # Import Installer cert (for signing PKG)
+          echo "$INSTALLER_P12_BASE64" | base64 --decode > installer_cert.p12
+          security import installer_cert.p12 -k "$KEYCHAIN_PATH" -P "$INSTALLER_P12_PASSWORD" -A
+          rm installer_cert.p12
+          security set-key-partition-list -S apple-tool:,apple:,productbuild: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" login.keychain-db
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Developer ID Application" | head -1 | awk -F'"' '{print $2}')
+          echo "SIGNING_IDENTITY=$IDENTITY" >> $GITHUB_ENV
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
+
+      - name: Sign AU, VST3, and CLAP
+        run: |
+          AU_PATH="build/WayQ_artefacts/Release/AU/WayQ.component"
+          VST3_PATH="build/WayQ_artefacts/Release/VST3/WayQ.vst3"
+          CLAP_PATH="build/WayQ_artefacts/Release/CLAP/WayQ.clap"
+          codesign --deep --force --options runtime --sign "$SIGNING_IDENTITY" --keychain "$KEYCHAIN_PATH" --timestamp "$AU_PATH"
+          codesign --deep --force --options runtime --sign "$SIGNING_IDENTITY" --keychain "$KEYCHAIN_PATH" --timestamp "$VST3_PATH"
+          codesign --deep --force --options runtime --sign "$SIGNING_IDENTITY" --keychain "$KEYCHAIN_PATH" --timestamp "$CLAP_PATH"
+          codesign --verify --deep --strict "$AU_PATH"
+          codesign --verify --deep --strict "$VST3_PATH"
+          codesign --verify --deep --strict "$CLAP_PATH"
+
+      - name: Validate AU with auval
+        run: |
+          AU_BUILD="build/WayQ_artefacts/Release/AU/WayQ.component"
+          AU_DEST="$HOME/Library/Audio/Plug-Ins/Components"
+          mkdir -p "$AU_DEST"
+          cp -R "$AU_BUILD" "$AU_DEST/"
+          killall -9 AudioComponentRegistrar 2>/dev/null || true
+          # wayq is a plain audio effect: type aufx, code WayQ, manufacturer RRth.
+          auval -q -v aufx WayQ RRth || {
+            echo "::warning::auval failed — AU may not load in Logic Pro. Check AU code signing."
+            exit 0
+          }
+
+      # ── Package signed PKG installer ─────────────────────
+      - name: Read version string
+        id: version
+        run: |
+          # Match the definition line specifically (anchored on `constexpr`)
+          # so comment lines mentioning PLUGIN_VERSION don't poison the read.
+          VER=$(grep 'constexpr.*PLUGIN_VERSION' src/PluginProcessor.h \
+                | sed 's/.*"\(.*\)".*/\1/' | tr '.' '_')
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Build PKG installer
+        run: |
+          VER="${{ steps.version.outputs.ver }}"
+
+          # ── VST3 component package ─────────────────────────
+          mkdir -p vst3_payload vst3_scripts
+          cp -R build/WayQ_artefacts/Release/VST3/WayQ.vst3 vst3_payload/
+          cp src/mac_postinstall.sh vst3_scripts/postinstall
+          chmod +x vst3_scripts/postinstall
+
+          pkgbuild --root vst3_payload \
+                   --install-location "/Library/Audio/Plug-Ins/VST3" \
+                   --identifier "net.way.wayq.vst3" \
+                   --version "$VER" \
+                   --scripts vst3_scripts \
+                   WayQ-VST3.pkg
+
+          # ── AU component package (if present) ──────────────
+          AU_BUILD="build/WayQ_artefacts/Release/AU/WayQ.component"
+          HAS_AU=false
+          if [ -d "$AU_BUILD" ]; then
+            HAS_AU=true
+            mkdir -p au_payload
+            cp -R "$AU_BUILD" au_payload/
+
+            pkgbuild --root au_payload \
+                     --install-location "/Library/Audio/Plug-Ins/Components" \
+                     --identifier "net.way.wayq.au" \
+                     --version "$VER" \
+                     WayQ-AU.pkg
+          fi
+
+          # ── CLAP component package (if present) ─────────────
+          CLAP_BUILD="build/WayQ_artefacts/Release/CLAP/WayQ.clap"
+          HAS_CLAP=false
+          if [ -e "$CLAP_BUILD" ] || [ -d "$CLAP_BUILD" ]; then
+            HAS_CLAP=true
+            mkdir -p clap_payload
+            cp -R "$CLAP_BUILD" clap_payload/
+
+            pkgbuild --root clap_payload \
+                     --install-location "/Library/Audio/Plug-Ins/CLAP" \
+                     --identifier "net.way.wayq.clap" \
+                     --version "$VER" \
+                     WayQ-CLAP.pkg
+          fi
+
+          # ── Combine into single installer package ──────────
+          if $HAS_AU && $HAS_CLAP; then
+            productbuild --synthesize \
+                         --package WayQ-VST3.pkg \
+                         --package WayQ-AU.pkg \
+                         --package WayQ-CLAP.pkg \
+                         distribution.xml
+          elif $HAS_AU; then
+            productbuild --synthesize \
+                         --package WayQ-VST3.pkg \
+                         --package WayQ-AU.pkg \
+                         distribution.xml
+          elif $HAS_CLAP; then
+            productbuild --synthesize \
+                         --package WayQ-VST3.pkg \
+                         --package WayQ-CLAP.pkg \
+                         distribution.xml
+          else
+            productbuild --synthesize \
+                         --package WayQ-VST3.pkg \
+                         distribution.xml
+          fi
+
+          # Find the installer signing identity (Developer ID Installer)
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          INSTALL_IDENTITY=$(security find-identity -v "$KEYCHAIN_PATH" | grep "Developer ID Installer" | head -1 | awk -F'"' '{print $2}') || true
+          if [ -n "$INSTALL_IDENTITY" ]; then
+            echo "Signing PKG with: $INSTALL_IDENTITY"
+            productbuild --distribution distribution.xml \
+                         --package-path . \
+                         --sign "$INSTALL_IDENTITY" \
+                         --keychain "$KEYCHAIN_PATH" \
+                         "WayQ-macOS.pkg"
+          else
+            echo "No Developer ID Installer identity found, falling back to Developer ID Application"
+            productbuild --distribution distribution.xml \
+                         --package-path . \
+                         --sign "$SIGNING_IDENTITY" \
+                         --keychain "$KEYCHAIN_PATH" \
+                         "WayQ-macOS.pkg"
+          fi
+
+      - name: Notarize and staple .pkg
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          SUBMIT_OUT=$(xcrun notarytool submit "WayQ-macOS.pkg" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait --timeout 600 2>&1) || true
+          echo "$SUBMIT_OUT"
+          SUBMISSION_ID=$(echo "$SUBMIT_OUT" | grep "id:" | head -1 | awk '{print $2}')
+          if echo "$SUBMIT_OUT" | grep -q "status: Invalid"; then
+            echo "--- Notarization log ---"
+            xcrun notarytool log "$SUBMISSION_ID" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_APP_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID"
+            exit 1
+          fi
+          xcrun stapler staple "WayQ-macOS.pkg"
+
+      - name: Upload PKG
+        uses: actions/upload-artifact@v6
+        with:
+          name: WayQ-macOS-PKG
+          path: WayQ-macOS.pkg
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          if [ -f "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH"
+          fi
+
+  # ============================================================
+  # Release (tag-triggered only) — GitHub Release on rcrath/wayq
+  # + deploy to way.net/wayq/installers
+  # ============================================================
+  release:
+    needs: [ build-windows, build-windows-arm64, build-linux, build-linux-arm64, build-macos ]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (for release notes)
+        uses: actions/checkout@v5
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: artifacts/
+
+      - name: Assemble release files
+        run: |
+          TAG="${{ github.ref_name }}"
+
+          # Windows zip
+          cd artifacts/WayQ-Windows-VST3
+          zip -r "$GITHUB_WORKSPACE/WayQ-Windows-${TAG}.zip" .
+          cd "$GITHUB_WORKSPACE"
+
+          # Windows ARM64 zip
+          cd artifacts/WayQ-Windows-ARM64-VST3
+          zip -r "$GITHUB_WORKSPACE/WayQ-Windows-ARM64-${TAG}.zip" .
+          cd "$GITHUB_WORKSPACE"
+
+          # macOS — signed & notarized PKG (universal: x86_64 + arm64)
+          MAC_PKG=$(find artifacts/WayQ-macOS-PKG -name "*.pkg" | head -1)
+          cp "$MAC_PKG" "WayQ-macOS-${TAG}.pkg"
+
+          # Linux zip
+          cd artifacts/WayQ-Linux-VST3
+          zip -r "$GITHUB_WORKSPACE/WayQ-Linux-${TAG}.zip" .
+          cd "$GITHUB_WORKSPACE"
+
+          # Linux ARM64 zip
+          cd artifacts/WayQ-Linux-ARM64-VST3
+          zip -r "$GITHUB_WORKSPACE/WayQ-Linux-ARM64-${TAG}.zip" .
+          cd "$GITHUB_WORKSPACE"
+
+      - name: Publish GitHub Release (rcrath/wayq)
+        run: |
+          TAG="${{ github.ref_name }}"
+          NOTES_FILE=$(mktemp)
+          cat src/release-notes.md > "$NOTES_FILE"
+          cat >> "$NOTES_FILE" <<EOF
+
+          ## Downloads
+          | Platform | File |
+          |---|---|
+          | Windows (x64)    | WayQ-Windows-${TAG}.zip |
+          | Windows (ARM64)  | WayQ-Windows-ARM64-${TAG}.zip |
+          | macOS (universal) | WayQ-macOS-${TAG}.pkg |
+          | Linux (x64)      | WayQ-Linux-${TAG}.zip |
+          | Linux (ARM64)    | WayQ-Linux-ARM64-${TAG}.zip |
+
+          **macOS:** Download and double-click the .pkg installer. It is signed and notarized by Apple.
+          **Note:** The 'Source code' archives below are auto-generated by GitHub and are not needed to install the plugin.
+          EOF
+
+          gh release create "$TAG" \
+            --repo rcrath/wayq \
+            --title "WayQ $TAG" \
+            --notes-file "$NOTES_FILE" \
+            "WayQ-Windows-${TAG}.zip" \
+            "WayQ-Windows-ARM64-${TAG}.zip" \
+            "WayQ-macOS-${TAG}.pkg" \
+            "WayQ-Linux-${TAG}.zip" \
+            "WayQ-Linux-ARM64-${TAG}.zip"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy installers to way.net
+        env:
+          SSH_KEY: ${{ secrets.HOSTGATOR_SSH_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.ref_name }}"
+          HOST="rcrath@gator3272.hostgator.com"
+          REMOTE_DIR="~/public_html/wayq/installers"
+
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/hostgator_ed25519
+          chmod 600 ~/.ssh/hostgator_ed25519
+          ssh-keyscan -H gator3272.hostgator.com >> ~/.ssh/known_hosts 2>/dev/null
+          SSHO="-o IdentitiesOnly=yes -i $HOME/.ssh/hostgator_ed25519"
+
+          # 1. Fetch current index.html before any moves.
+          #    FIRST RUN: there is no index.html yet (dir holds only
+          #    .htaccess, HEADER.html, style.css). Handle gracefully.
+          HAVE_OLD_INDEX=false
+          if scp $SSHO "${HOST}:${REMOTE_DIR}/index.html" /tmp/old_index.html 2>/dev/null; then
+            HAVE_OLD_INDEX=true
+          else
+            echo "No existing index.html on server — first run. Skipping archive step."
+          fi
+
+          # 2 & 3. Parse OLDVER and archive the outgoing release — only if an old index exists.
+          if $HAVE_OLD_INDEX; then
+            OLDVER=$(sed -n 's|.*href="WayQ-Windows-\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*[A-Za-z0-9._-]*\)\.zip".*|\1|p' /tmp/old_index.html | head -1)
+            if [ -z "$OLDVER" ]; then
+              echo "WARNING: could not parse OLDVER from fetched index.html; archiving under 'previous' instead." >&2
+              OLDVER="previous"
+            fi
+            echo "OLDVER=$OLDVER  TAG=$TAG"
+
+            # Archive outgoing release into a per-version subfolder (rhythmecho structure).
+            ARCHIVE_CMD="cd ${REMOTE_DIR} && mkdir -p archive/wayq-${OLDVER} && mv index.html archive/wayq-${OLDVER}/ && find . -maxdepth 1 -type f -name 'WayQ-*' -exec mv {} archive/wayq-${OLDVER}/ \\;"
+            ssh $SSHO "${HOST}" "${ARCHIVE_CMD}"
+          fi
+
+          # 4. Build the release notes body for the new index.
+          #    Reuse the published GitHub release body, stripping the Downloads table.
+          NOTES_MD=$(gh release view "$TAG" --repo rcrath/wayq --json body --jq .body \
+            | sed '/^## Downloads/,$d' || true)
+          if [ -z "$NOTES_MD" ]; then
+            NOTES_MD=$(sed '/^## Downloads/,$d' src/release-notes.md)
+          fi
+
+          # 5. Obtain a <style> source for the new index.
+          #    Prefer the prior index's <style>; on first run fetch the deployed
+          #    style.css; if neither is available, fall back to a sane default.
+          STYLE_SRC=""
+          if $HAVE_OLD_INDEX; then
+            STYLE_SRC=/tmp/old_index.html
+          elif scp $SSHO "${HOST}:${REMOTE_DIR}/style.css" /tmp/style.css 2>/dev/null; then
+            STYLE_SRC=/tmp/style.css
+          fi
+
+          # 6. Generate the new index.html on the runner.
+          RELEASE_DATE=$(date +"%Y-%m-%d")
+          TAG="$TAG" NOTES_MD="$NOTES_MD" RELEASE_DATE="$RELEASE_DATE" STYLE_SRC="$STYLE_SRC" python3 - <<'PYEOF'
+          import os, re
+
+          tag = os.environ['TAG']
+          notes_md = os.environ['NOTES_MD']
+          release_date = os.environ['RELEASE_DATE']
+          style_src = os.environ.get('STYLE_SRC', '')
+
+          default_css = """
+          body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 760px;
+                 margin: 2rem auto; padding: 0 1rem; color: #1a1a1a; line-height: 1.55; }
+          h1 { font-weight: 600; }
+          .subtitle { color: #666; }
+          ul.file-list { list-style: none; padding: 0; }
+          ul.file-list li { padding: .35rem 0; }
+          ul.file-list .note { color: #888; font-size: .9em; }
+          ul.rn-items { padding-left: 1.2rem; }
+          .beta-badge { font-size: .55em; vertical-align: middle; background:#eee;
+                        border-radius:4px; padding:.1em .4em; color:#555; }
+          """
+
+          custom_css = default_css
+          if style_src:
+              with open(style_src, 'r', encoding='utf-8') as f:
+                  src = f.read()
+              if style_src.endswith('.css'):
+                  custom_css = src
+              else:
+                  # Extract <style> blocks, skipping any Cloudflare cf-fonts block.
+                  style_blocks = re.findall(r'<style[^>]*>(.*?)</style>', src, re.DOTALL)
+                  extracted = '\n'.join(s.strip() for s in style_blocks if '/cf-fonts/' not in s)
+                  if extracted.strip():
+                      custom_css = extracted
+
+          def inline_md(text):
+              text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+              text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'<a href="\2">\1</a>', text)
+              return text
+
+          def md_to_html(md):
+              lines = md.splitlines()
+              out = []
+              i = 0
+              while i < len(lines):
+                  line = lines[i]
+                  stripped = line.strip()
+                  if stripped.startswith('<details'):
+                      block = []
+                      while i < len(lines):
+                          block.append(lines[i])
+                          if lines[i].strip() == '</details>':
+                              i += 1
+                              break
+                          i += 1
+                      out.append('\n'.join(block))
+                      continue
+                  m = re.match(r'^#{1,6}\s+(.*)', line)
+                  if m:
+                      out.append('<h3>' + inline_md(m.group(1)) + '</h3>')
+                      i += 1
+                      continue
+                  if stripped.startswith('- ') or stripped.startswith('* '):
+                      items = []
+                      while i < len(lines) and (lines[i].strip().startswith('- ') or lines[i].strip().startswith('* ')):
+                          item = re.sub(r'^[-*]\s+', '', lines[i].strip())
+                          items.append('  <li>' + inline_md(item) + '</li>')
+                          i += 1
+                      out.append('<ul class="rn-items">\n' + '\n'.join(items) + '\n</ul>')
+                      continue
+                  if not stripped:
+                      i += 1
+                      continue
+                  para = []
+                  while i < len(lines):
+                      l = lines[i].strip()
+                      if not l or l.startswith('#') or l.startswith('- ') or l.startswith('* ') or l.startswith('<'):
+                          break
+                      para.append(l)
+                      i += 1
+                  if para:
+                      out.append('<p>' + inline_md(' '.join(para)) + '</p>')
+                  else:
+                      i += 1
+              return '\n\n'.join(x for x in out if x)
+
+          notes_html = md_to_html(notes_md)
+
+          downloads = '\n'.join([
+              '<ul class="file-list">',
+              f'  <li><a href="WayQ-Windows-{tag}.zip">WayQ-Windows-{tag}.zip</a> <span class="note">Windows x64</span></li>',
+              f'  <li><a href="WayQ-Windows-ARM64-{tag}.zip">WayQ-Windows-ARM64-{tag}.zip</a> <span class="note">Windows ARM64 — Snapdragon laptops etc.</span></li>',
+              f'  <li><a href="WayQ-macOS-{tag}.pkg">WayQ-macOS-{tag}.pkg</a> <span class="note">macOS universal — signed &amp; notarized, double-click to install</span></li>',
+              f'  <li><a href="WayQ-Linux-{tag}.zip">WayQ-Linux-{tag}.zip</a> <span class="note">Linux x64</span></li>',
+              f'  <li><a href="WayQ-Linux-ARM64-{tag}.zip">WayQ-Linux-ARM64-{tag}.zip</a> <span class="note">Linux ARM64 — Raspberry Pi etc.</span></li>',
+              '</ul>',
+          ])
+
+          page_lines = [
+              '<!doctype html>',
+              '<html lang="en">',
+              '<head>',
+              '<meta charset="utf-8">',
+              '<meta name="viewport" content="width=device-width,initial-scale=1">',
+              '<title>WayQ Installers</title>',
+              '<style>',
+              custom_css,
+              '</style>',
+              '</head>',
+              '<body>',
+              '',
+              '<h1>WayQ Installers</h1>',
+              '<p class="subtitle"><a href="https://way.net/wayq">way.net/wayq</a> &nbsp;·&nbsp; <a href="https://github.com/rcrath/wayq">Source &amp; release notes</a></p>',
+              '',
+              '<h2>Downloads</h2>',
+              f'<p class="subtitle">Released {release_date}</p>',
+              downloads,
+              '',
+              f'<h2>Release Notes — {tag}</h2>',
+              '',
+              notes_html,
+              '',
+              '</body>',
+              '</html>',
+          ]
+
+          with open('/tmp/index.html', 'w', encoding='utf-8') as f:
+              f.write('\n'.join(page_lines) + '\n')
+
+          print('Generated /tmp/index.html')
+          PYEOF
+
+          # 7. Upload new index + 5 installers to the (now-emptied) top level.
+          scp $SSHO \
+            /tmp/index.html \
+            "WayQ-Windows-${TAG}.zip" \
+            "WayQ-Windows-ARM64-${TAG}.zip" \
+            "WayQ-macOS-${TAG}.pkg" \
+            "WayQ-Linux-${TAG}.zip" \
+            "WayQ-Linux-ARM64-${TAG}.zip" \
+            "${HOST}:${REMOTE_DIR}/"
+
+          rm -f ~/.ssh/hostgator_ed25519
+          echo "Deployed WayQ ${TAG} installers + index to way.net/wayq/installers/"

@@ -308,15 +308,13 @@ juce::Rectangle<int> OutFilterRow::cellBounds() const
 {
     const float kW = (float) getWidth() / 626.0f;
 
-    // The button block to the left is a 2-column stack of toned-down squares
-    // (see resized()). The graph starts just past that block and runs to the
-    // original workarea right edge, which keeps clear of the link button.
-    // Smaller buttons => the graph starts further left => wider graph.
-    const int btnSz      = getHeight() / 7;          // matches resized()
-    const int leftMargin = (int)(6.0f * kW);
-    const int gap        = (int)(8.0f * kW);
-    const int cellLeft   = leftMargin + 2 * btnSz + gap;
-    const int cellRight  = (int)((GUIConstants::WORKAREA_X + GUIConstants::WORKAREA_W) * kW);
+    // Symmetric left/right graph margins, both equal to the right "L" margin
+    // (the gap from the graph cell's right edge to the window edge, where the
+    // link button sits). The 2x2 button block lives inside the left margin
+    // (see resized()); the graph fills the wide middle.
+    const int cellRight = (int)(GUIConstants::WORKAREA_END * kW);   // unchanged right edge
+    const int margin    = getWidth() - cellRight;                   // = L-margin width
+    const int cellLeft  = margin;                                   // mirror on the left
 
     return { cellLeft, 0, cellRight - cellLeft, getHeight() };
 }
@@ -360,19 +358,26 @@ void OutFilterRow::resized()
         }
     }
 
-    // Combined delta/polarity + EQ-mode buttons — 2 rows x 2 columns,
-    // to the left of the graph. Toned-down squares (height/7) so they don't
-    // dominate; the block is vertically centred against the graph.
+    // Combined delta/polarity + EQ-mode buttons — 2 rows x 2 columns, sized to
+    // fit inside the LEFT graph margin (which equals the right "L" margin width).
+    // Shrunk ~50% from the old height/7 squares; the block is centred both ways
+    // inside that margin.
     {
-        const int sz         = workareaH / 7;
-        const int leftMargin = (int)(6.0f * kW);
-        const int blockH     = 2 * sz;
-        const int by0        = (workareaH - blockH) / 2;
-        const int bx         = leftMargin;
-        deltaPolarityBtn_.setBounds  (bx,      by0,          sz, sz);
-        deltaPolarityBtn_B_.setBounds(bx + sz, by0,          sz, sz);
-        eqModeXBtnA_.setBounds       (bx,      by0 + sz,     sz, sz);
-        eqModeXBtnB_.setBounds       (bx + sz, by0 + sz,     sz, sz);
+        const int margin = cellBounds().getX();         // = left margin width
+        const int gap    = juce::jmax (2, (int)(2.0f * kW));
+        int sz           = (margin - 3 * gap) / 2;       // two columns + edge padding
+        sz               = juce::jmin (sz, workareaH / 8);
+        sz               = juce::jmax (sz, 8);
+
+        const int blockW = 2 * sz + gap;
+        const int blockH = 2 * sz + gap;
+        const int bx     = (margin     - blockW) / 2;    // centre in the left margin
+        const int by0    = (workareaH  - blockH) / 2;
+
+        deltaPolarityBtn_.setBounds  (bx,            by0,            sz, sz);
+        deltaPolarityBtn_B_.setBounds(bx + sz + gap, by0,            sz, sz);
+        eqModeXBtnA_.setBounds       (bx,            by0 + sz + gap, sz, sz);
+        eqModeXBtnB_.setBounds       (bx + sz + gap, by0 + sz + gap, sz, sz);
 
         deltaPolarityBtn_B_.setVisible (! linked_);
         eqModeXBtnB_.setVisible        (! linked_);
@@ -1464,12 +1469,6 @@ juce::String OutFilterRow::getTooltip()
 // ---------------------------------------------------------------------------
 // Existing API (link, channel, reset) — unchanged in behavior.
 // ---------------------------------------------------------------------------
-void OutFilterRow::applyFafoColors (bool isFafo)
-{
-    fafo_ = isFafo;
-    repaint();
-}
-
 void OutFilterRow::setLinked (bool linked)
 {
     if (linked == linked_)

@@ -3,8 +3,9 @@ setlocal
 
 cd /d "%~dp0.."
 
-REM Build dir lives outside Dropbox to avoid file locks defeating rmdir.
-set "BUILD_DIR=%LOCALAPPDATA%\Temp\re_build\wayq"
+REM Build + staging live OUTSIDE Dropbox so Dropbox can't grab files mid-build.
+set "BUILD_DIR=%USERPROFILE%\sandbox\way\build"
+set "STAGE_DIR=%USERPROFILE%\sandbox\way"
 
 set "LOG_FILE=%~dp0..\error.log"
 echo === Build log %DATE% %TIME% === > "%LOG_FILE%"
@@ -176,15 +177,15 @@ if errorlevel 1 goto :fail_done
 echo.
 echo [3/3] Staging VST3 + CLAP...
 :full_stage_try
-if not exist win\ mkdir win\
-xcopy /E /I /Y "%BUILD_DIR%\WayQ_artefacts\Release\VST3\WayQ.vst3" win\WayQ.vst3 >nul
+if not exist "%STAGE_DIR%\" mkdir "%STAGE_DIR%"
+xcopy /E /I /Y "%BUILD_DIR%\WayQ_artefacts\Release\VST3\WayQ.vst3" "%STAGE_DIR%\WayQ.vst3" >nul
 if errorlevel 1 goto :full_stage_failed
-copy /Y "%BUILD_DIR%\WayQ_artefacts\Release\CLAP\WayQ.clap" win\WayQ.clap >nul
+copy /Y "%BUILD_DIR%\WayQ_artefacts\Release\CLAP\WayQ.clap" "%STAGE_DIR%\WayQ.clap" >nul
 if errorlevel 1 goto :full_stage_failed
 goto :full_stage_ok
 :full_stage_failed
 echo.
-echo STAGING COPY FAILED. Possible causes: a DAW has the plugin locked, or the win\ folder is in use.
+echo STAGING COPY FAILED. Possible causes: a DAW has the plugin locked, or the staging folder is in use.
 set /p "RETRY=[R]etry staging or [Q]uit? "
 if /i "%RETRY%"=="R" goto :full_stage_try
 goto :fail_done
@@ -198,11 +199,11 @@ if /i "%CONFIRM%"=="Y" goto :full_install_try
 echo Skipped install.
 goto :done
 :full_install_try
-xcopy /E /I /Y "%cd%\win\WayQ.vst3" "C:\Program Files\Common Files\VST3\WayQ.vst3" >nul
+xcopy /E /I /Y "%STAGE_DIR%\WayQ.vst3" "C:\Program Files\Common Files\VST3\WayQ.vst3" >nul
 if errorlevel 1 goto :full_install_failed
 if not exist "C:\Program Files\Common Files\CLAP" mkdir "C:\Program Files\Common Files\CLAP"
 if exist "C:\Program Files\Common Files\CLAP" icacls "C:\Program Files\Common Files\CLAP" /grant *S-1-1-0:(OI)(CI)F >nul 2>&1
-copy /Y "%cd%\win\WayQ.clap" "C:\Program Files\Common Files\CLAP\WayQ.clap" >nul
+copy /Y "%STAGE_DIR%\WayQ.clap" "C:\Program Files\Common Files\CLAP\WayQ.clap" >nul
 if errorlevel 1 goto :full_install_failed
 echo VST3 + CLAP installed.
 echo [%DATE% %TIME%]

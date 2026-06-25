@@ -25,7 +25,7 @@ juce_add_plugin (WayQ
     COMPANY_NAME              "Way.Net"
     PLUGIN_MANUFACTURER_CODE  RRth
     PLUGIN_CODE               WayQ
-    FORMATS                   VST3
+    FORMATS                   VST3 AU
     PRODUCT_NAME              "WayQ"
     IS_SYNTH                  FALSE
     NEEDS_MIDI_INPUT          FALSE
@@ -40,8 +40,6 @@ juce_add_binary_data (WayQData
         src/OpenSansCondensed-Light.ttf
         src/unifont.otf
         src/yinyang.svg
-        src/feedback.png
-        src/postdelay.png
 )
 
 target_sources (WayQ PRIVATE
@@ -53,11 +51,6 @@ target_sources (WayQ PRIVATE
     src/PluginProcessor.cpp
     src/PluginEditor.cpp
     src/OutFilterRow.cpp
-    src/StereoSliderRow.cpp
-    src/MonoSliderRow.cpp
-    src/DualHandleFilterRow.cpp
-    src/DualHandleSlider.cpp
-    src/DryWet.cpp
 )
 
 target_link_libraries (WayQ

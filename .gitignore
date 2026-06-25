@@ -1,0 +1,9 @@
+# Build + staging output — these live OUTSIDE the repo (C:\Users\rich\sandbox\way).
+win/
+build/
+
+# Worker / build scratch
+.dispatch/
+.vs/
+error.log
+*.tmp
