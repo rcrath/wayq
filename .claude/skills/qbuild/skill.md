@@ -1,6 +1,6 @@
 ---
 name: qbuild
-description: "Pre-build prompt for wayq: optionally runs /regress, asks whether you will build and test, recommends build type based on changes since last build, records the timestamp + build type when you confirm, then captures the build result (success/fail) from the user's next message."
+description: "Pre-build prompt for wayq: optionally runs /wayq-regress, asks whether you will build and test, recommends build type based on changes since last build, records the timestamp + build type when you confirm, then captures the build result (success/fail) from the user's next message."
 ---
 
 # /qbuild — pre-build prompt
@@ -21,6 +21,8 @@ Invoke this skill when the user indicates they are about to build. Trigger phras
 
 ## Behavior
 
+**Backup location:** all backups live OUTSIDE the repo at `C:\Users\rich\sandbox\backups\wayq\` (the backup root). Everywhere in this skill, a path written `backup/…` — or a bare `baseline/…` — refers to that root: e.g. `backup/yymmdd-hhmm/` = `C:\Users\rich\sandbox\backups\wayq\yymmdd-hhmm\`, and `backup/baseline/src/` (or `baseline/src/`) = `C:\Users\rich\sandbox\backups\wayq\baseline\src\`. Never create a `backup/` folder inside the repo.
+
 **First**, before asking any questions, create a new backup slot at backup/yymmdd-hhmm/. For each file in current src/, search existing backup slots newest-to-oldest, then fall back to backup/baseline/src/, to find the last backed-up version of that file. Copy the file into the new slot's src/ subfolder only if it is not found in any prior slot or baseline (new file) or its content differs (modified file). After the copy loop completes, if zero files were copied into the slot's src/ subfolder, delete the slot folder entirely (rm -rf backup/yymmdd-hhmm/) and print "No files changed — backup slot skipped." Do not write deleteme.md or run the retention/recycling logic for that run. If at least one file was copied, proceed as normal: write backup/yymmdd-hhmm/deleteme.md listing any files present in the most recent prior slot's src/ that no longer exist in current src/. Keep up to 5 backup subfolders (sorted by name). When the count exceeds 5, before recycling: merge the oldest slot's files into baseline/src/ (copy each file from the oldest slot into baseline/src/, overwriting), then delete the oldest slot folder entirely. Never recycle or delete backup/baseline/.
 
 When triggered, ask the user ONE question — no preamble, no summary:
@@ -29,7 +31,7 @@ When triggered, ask the user ONE question — no preamble, no summary:
 
 **If yes (or any affirmative):**
 
-Invoke `/regress` via the Skill tool with `skill="regress"`. After it completes, ask:
+Invoke `/wayq-regress` via the Skill tool with `skill="wayq-regress"`. After it completes, ask:
 
 > Will you build and test now?
 
@@ -51,7 +53,7 @@ Skip the regression check. Ask:
 
 ## Build Type Analysis
 
-If /regress ran, use the diff it already computed. If /regress was skipped, compute the diff now: list dated backup subfolders sorted by name, take the newest. Diff it against the second newest if one exists, otherwise diff it against backup/baseline/src/. If no dated subfolders exist at all, skip build-type analysis and print `Recommend Quick Build — no prior backup to diff against.`
+If /wayq-regress ran, use the diff it already computed. If /wayq-regress was skipped, compute the diff now: list dated backup subfolders sorted by name, take the newest. Diff it against the second newest if one exists, otherwise diff it against backup/baseline/src/. If no dated subfolders exist at all, skip build-type analysis and print `Recommend Quick Build — no prior backup to diff against.`
 
 Apply these rules in order (first match wins):
 

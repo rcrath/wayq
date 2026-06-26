@@ -4,8 +4,8 @@ setlocal
 cd /d "%~dp0.."
 
 REM Build + staging live OUTSIDE Dropbox so Dropbox can't grab files mid-build.
-set "BUILD_DIR=%USERPROFILE%\sandbox\way\build"
-set "STAGE_DIR=%USERPROFILE%\sandbox\way"
+set "BUILD_DIR=C:\Users\rich\sandbox\way\build"
+set "STAGE_DIR=C:\Users\rich\sandbox\way"
 
 set "LOG_FILE=%~dp0..\error.log"
 echo === Build log %DATE% %TIME% === > "%LOG_FILE%"

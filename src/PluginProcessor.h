@@ -4,7 +4,7 @@
 #include <deque>
 #include "IO.h"
 
-static constexpr const char* PLUGIN_VERSION = "v0.1.0-alpha";
+static constexpr const char* PLUGIN_VERSION = "v0.1.1-alpha";
 
 class WayQAudioProcessor : public juce::AudioProcessor,
                            public juce::ChangeBroadcaster

@@ -2,6 +2,13 @@
 win/
 build/
 
+# Backups now live outside the repo (C:\Users\rich\sandbox\backups\wayq); ignore
+# any stray backup/ that lands in the repo.
+backup/
+
+# /qbuild build-state file (local, per-machine)
+.claude/skills/qbuild/last-build.txt
+
 # Worker / build scratch
 .dispatch/
 .vs/

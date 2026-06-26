@@ -1,16 +1,18 @@
 ---
-name: regress
-description: "Check all GitHub wayq issues tagged regress_meta against changes since the last successful build. Spawns parallel haiku agents — one per issue — and reports Clear or Risk in plain audio terms. Run standalone via /regress or automatically from /ibuild."
+name: wayq-regress
+description: "Check all GitHub wayq issues tagged regress_meta against changes since the last successful build. Spawns parallel haiku agents — one per issue — and reports Clear or Risk in plain audio terms. Run standalone via /wayq-regress or automatically from /qbuild."
 ---
 
-# /regress — regression issue check against last successful build
+# /wayq-regress — regression issue check against last successful build
 
 ## Trigger
 
-- `/regress`
+- `/wayq-regress`
 - Called by `/qbuild`
 
 ## Behavior
+
+**Backup location:** the backup root is `C:\Users\rich\sandbox\backups\wayq\` (outside the repo). Every `backup/…` (and bare `baseline/…`) path below means that root — e.g. `backup/baseline/src/` = `C:\Users\rich\sandbox\backups\wayq\baseline\src\`.
 
 1. List dated subfolders of `backup/` (exclude `baseline/` and `_recycled/`) sorted by name. If none exist, print "No prior build to diff against — skipping regression check." and stop.
 
@@ -51,12 +53,12 @@ description: "Check all GitHub wayq issues tagged regress_meta against changes s
    All clear — #N, #M, #P all Clear.
    ```
 
-8. Never omit the report. Always print it before returning to the caller (e.g. /ibuild).
+8. Never omit the report. Always print it before returning to the caller (e.g. /qbuild).
 
 ## Hard rules
 
 - Label is `regress_meta`. Never search for `regress_check`.
-- Diff baseline is the second most recent dated slot, or backup/baseline/src/ if only one dated slot exists. Never diff against baseline/ or _recycled/ as NEWEST. Backup retention is managed by /ibuild.
+- Diff baseline is the second most recent dated slot, or backup/baseline/src/ if only one dated slot exists. Never diff against baseline/ or _recycled/ as NEWEST. Backup retention is managed by /qbuild.
 - Use model name `"haiku"` (not a versioned ID) for all sub-agents.
 - loking specifically for diffs that break. do not do a general code review. just code that breaks things.  
 - Explain every Risk in plain audio terms — name the behavior (e.g. "delay time jumps on preset load"), not the code.

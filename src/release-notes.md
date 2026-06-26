@@ -1,6 +1,6 @@
-# WayQ v0.1.0-alpha
+# WayQ v0.1.1-alpha
 
-First alpha of WayQ — a fast, deceptively simple two-mode filter, light on CPU and quick to dial in. VST3 and CLAP on Windows and Linux; VST3, CLAP, and AU on macOS.
+First public alpha of WayQ — a fast, deceptively simple two-mode filter, light on CPU and quick to dial in. VST3 and CLAP on Windows and Linux; VST3, CLAP, and AU on macOS.
 
 **Pass** — a standard HP / Bell / LP first-pass EQ. One handle each sweeps the high-pass and low-pass cutoff and steepness, with a freq/gain/Q bell for shaping in between.
 
