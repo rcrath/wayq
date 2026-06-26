@@ -17,7 +17,7 @@ FetchContent_Declare (
     clap_juce_extensions
     GIT_REPOSITORY https://github.com/free-audio/clap-juce-extensions.git
     GIT_TAG        51a9359315298de632cf44e9d7524940868441e6
-    GIT_SHALLOW    TRUE
+    GIT_SHALLOW    FALSE
 )
 FetchContent_MakeAvailable (clap_juce_extensions)
 
